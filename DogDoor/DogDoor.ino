@@ -43,7 +43,7 @@ QuickPingState *getState()
   state.addValue("direction", motorDirection);
   state.addValue("power", motorPower);
   Serial.print("STATE: ");
-  Serial.println(stte.getString());
+  Serial.println(state.getString());
   return &state;
 }
 
