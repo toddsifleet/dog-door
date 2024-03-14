@@ -35,15 +35,13 @@ QuickPingState state;
 
 QuickPingState *getState()
 {
-  state.clear(motorPower > 0 ? 1 : isOpen() ? 2
-                                            : 0);
+  state.clear(motorPower > 0 ? 'M' : isOpen() ? 'O'
+                                              : 'C');
   char *tmp = motorPower > 0 ? MOVING : isOpen() ? OPEN
                                                  : CLOSED;
   state.addValue("state", tmp);
   state.addValue("direction", motorDirection);
   state.addValue("power", motorPower);
-  Serial.print("STATE: ");
-  Serial.println(state.getString());
   return &state;
 }
 
@@ -165,7 +163,6 @@ void loop()
   }
   else
   {
-    Serial.println("[POTAMUS] LOOPING");
     QuickPingMessage *message = quickPing.loop(getState());
     if (message == NULL || message->action == 'P')
     {
