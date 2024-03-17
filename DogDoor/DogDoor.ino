@@ -164,26 +164,41 @@ void loop()
   else
   {
     QuickPingMessage *message = quickPing.loop(getState());
-    if (message == NULL || message->action == 'P')
+    if (message)
     {
-      free(message);
-      return;
+      if (message->action == 'C')
+      {
+        Serial.print("[POTAMUS] RECEIVED COMMAND:");
+        Serial.println(message->body);
+        switch (message->body[0])
+        {
+        case 'S':
+          stop();
+          break;
+        case 'O':
+          open();
+          break;
+        case 'C':
+          close();
+          break;
+        case 'T':
+          if (isOpen())
+            close();
+          else
+            open();
+          break;
+        }
+      }
+      else
+      {
+        Serial.print("[POTAMUS] RECEIVED UNKNOWN COMMAND:");
+        Serial.print(message->action);
+        Serial.print(":");
+        Serial.println(message->body);
+        return;
+      }
     }
-    switch (message->action)
-    {
-    case 'S':
-      Serial.println("[POTAMUS] STOPPING");
-      stop();
-      break;
-    case 'O':
-      Serial.println("[POTAMUS] OPENING");
-      open();
-      break;
-    case 'C':
-      Serial.println("[POTAMUS] CLOSING");
-      close();
-      break;
-    }
-    free(message);
   }
+  free(message);
+}
 }
