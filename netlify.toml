@@ -1,0 +1,19 @@
+[build]
+  command = "vite build"
+  functions = "netlify/functions"
+  publish = "dist"
+
+  [[redirects]]
+    from = "/rt/*"
+    # to = "https://rt.quickping.io/:splat"
+    to = "http://0.0.0.0:57/:splat"
+    status = 200
+    force = false
+    # TODO: FIGURE THIS OUT
+    headers = {X-From = "passwordtoshare"}
+    
+  [[redirects]]
+    from = "/*"
+    to = "/index.html"
+    status = 200
+    force = false

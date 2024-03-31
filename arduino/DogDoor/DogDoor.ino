@@ -1,7 +1,5 @@
 #include <WiFiS3.h>
 #include <quickping.h>
-#include <quickping_wifi.h>
-#include <quickping_http.h>
 
 struct Action
 {
@@ -23,26 +21,29 @@ unsigned long stopMotorAt = 0;
 // STATE OF MOTOR
 bool stateIsDirty = false;
 char *MOVING = "MOVING";
-char *CLOSED = "CLOSED";
-char *OPEN = "OPEN";
+char *DOOR_CLOSED = "CLOSED";
+char *DOOR_OPEN = "OPEN";
 char *STOPPED = "STOPPED";
 
 char motorDirection = OPEN_DIRECTION;
 unsigned char motorPower = 0;
 
 QuickPing quickPing;
-QuickPingState state;
 
-QuickPingState *getState()
+char *getPingBody()
 {
-  state.clear(motorPower > 0 ? 'M' : isOpen() ? 'O'
-                                              : 'C');
-  char *tmp = motorPower > 0 ? MOVING : isOpen() ? OPEN
-                                                 : CLOSED;
-  state.addValue("state", tmp);
-  state.addValue("direction", motorDirection);
-  state.addValue("power", motorPower);
-  return &state;
+  if (motorPower > 0)
+  {
+    return MOVING;
+  }
+  else if (isOpen())
+  {
+    return DOOR_OPEN;
+  }
+  else
+  {
+    return DOOR_CLOSED;
+  }
 }
 
 void setMotorPower(int power)
@@ -60,12 +61,22 @@ void onLimitOpen()
 
 void setup()
 {
-  state.clear();
   Serial.begin(115200);
   while (!Serial)
   {
     ;
   }
+
+  QuickPingConfig config = {
+      // .serverIP = IPAddress(192, 168, 86, 213),
+      .serverIP = IPAddress(64, 91, 249, 186),
+      .serverPort = 2525,
+      .localPort = 2525,
+      .uuid = "DEVICE_UUID",
+      .ssid = "WIFI_SSID",
+      .wifiPassword = "WIFI_PASSWORD",
+      .debug = true,
+  };
 
   pinMode(DIRECTION_PIN, OUTPUT);
   pinMode(PWM_PIN, OUTPUT);
@@ -73,13 +84,9 @@ void setup()
   pinMode(LIMIT_OPEN_PIN, INPUT);
   attachInterrupt(digitalPinToInterrupt(LIMIT_OPEN_PIN), onLimitOpen, HIGH);
 
-  WiFiServer wifiServer(80);
-
-  // TRY TO READ CONFIG
   Serial.println("[QP] RUNNING");
 
-  quickPing.loadConfig(&wifiServer);
-  quickPing.run(&wifiServer);
+  quickPing.run(&config);
 }
 
 bool isOpen()
@@ -152,21 +159,24 @@ void close()
 
 void loop()
 {
-  if (stopMotorAt > 0 && stopMotorAt < millis())
+  unsigned long currentMillis = millis();
+  // We need to protect the motor from running too long if millis rolls over.
+  // so we just panic and stop the motor if millis < 10,000 (10 seconds, bootup time)
+  if (stopMotorAt > 0 && (stopMotorAt < currentMillis || currentMillis < 10000))
   {
     stop();
   }
   if (stateIsDirty)
   {
-    quickPing.sendPing(getState());
+    quickPing.sendPing(getPingBody());
     stateIsDirty = false;
   }
   else
   {
-    QuickPingMessage *message = quickPing.loop(getState());
+    QuickPingMessage *message = quickPing.loop(getPingBody());
     if (message)
     {
-      if (message->action == 'C')
+      if (message->method == 'C')
       {
         Serial.print("[POTAMUS] RECEIVED COMMAND:");
         Serial.println(message->body);
@@ -192,13 +202,11 @@ void loop()
       else
       {
         Serial.print("[POTAMUS] RECEIVED UNKNOWN COMMAND:");
-        Serial.print(message->action);
+        Serial.print(message->method);
         Serial.print(":");
         Serial.println(message->body);
-        return;
       }
     }
+    free(message);
   }
-  free(message);
-}
 }
